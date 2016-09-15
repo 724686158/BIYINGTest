@@ -1,5 +1,7 @@
 package com.example.admin.biyingtest;
 
+import android.content.Context;
+import android.content.res.Configuration;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -8,12 +10,16 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.Selection;
 import android.text.Spannable;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -77,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
     Button button_do_translate;
     EditText editText_edit_text;
 
+    ProgressBar progressBar;
     View answer_view;
 
     private Answer answer;
@@ -93,12 +100,19 @@ public class MainActivity extends AppCompatActivity {
 
     private Handler handler = new Handler() {
         public void handleMessage(Message message) {
+            //结束转进度条
+            if (progressBar.getVisibility() == View.VISIBLE)
+            {
+                progressBar.setVisibility(View.GONE);
+            }
             switch (message.what) {
+
                 case TEANSLATE_SUCCESS:
                     showAnswer();
-                    Log.d("THIS", answer.toString());
+                    Toast.makeText(MainActivity.this, "结果由必应翻译第三方API提供", Toast.LENGTH_SHORT).show();
                     break;
                 case TEANSLATE_FALL:
+                    Toast.makeText(MainActivity.this, "必应翻译未能翻译出正确结果", Toast.LENGTH_SHORT).show();
                     break;
                 default:
                     break;
@@ -119,18 +133,18 @@ public class MainActivity extends AppCompatActivity {
             answer_view.setVisibility(View.VISIBLE);
 
             textView_answer_word.setText(answer.getWord());
-            Log.d("!!!", answer.getAmep());
 
             textView_answer_amep.setText(("美『 " + answer.getAmep() + " 』").toString());
-
             amesURL = answer.getAmes();
             ames_mediaPlayer = new MediaPlayer();
-
             initMediaPlayer(ames_mediaPlayer, amesURL);//调整要播放的mp3的网址
+
             textView_answer_brep.setText("英『 " + answer.getBrep() + " 』".toString());
             bresURL = answer.getBres();
             bres_mediaPlayer = new MediaPlayer();
             initMediaPlayer(bres_mediaPlayer, bresURL);
+
+
             if (answer.getPos1() != null) {
                 textView_answer_pos1.setVisibility(View.VISIBLE);
                 textView_answer_mn1.setVisibility(View.VISIBLE);
@@ -213,7 +227,13 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().hide();
+        }
+
         answer_view = findViewById(R.id.answer_view);
+
+        progressBar = (ProgressBar) findViewById(R.id.progress_bar);
 
         textView_answer_word = (TextView) findViewById(R.id.answer_word);
 
@@ -249,14 +269,28 @@ public class MainActivity extends AppCompatActivity {
         button_do_translate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                if (answer != null)
+                {
+                    answer = null;
+                    showAnswer();
+                }
+                //点击翻译按钮，隐藏软键盘
+                InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                inputMethodManager.hideSoftInputFromWindow(v.getWindowToken(), 0);
                 sendRequsetWithHttpClient(editText_edit_text.getText().toString());
+                //开始转（显示）进度条
+                if(progressBar.getVisibility() == View.GONE)
+                {
+                    progressBar.setVisibility(View.VISIBLE);
+                }
+
             }
         });
         editText_edit_text.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
+                editText_edit_text.setInputType(InputType.TYPE_TEXT_FLAG_MULTI_LINE);
                 editText_edit_text.setText(editText_edit_text.getText().toString());//添加这句后实现效果
                 Spannable content = editText_edit_text.getText();
                 Selection.selectAll(content);
@@ -400,4 +434,16 @@ public class MainActivity extends AppCompatActivity {
             bres_mediaPlayer.release();
         }
     }
+
+    //当发生横竖屏切换时
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            Toast.makeText(this, "切换到横屏模式", Toast.LENGTH_SHORT).show();
+        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
+            Toast.makeText(this, "切换到竖屏模式", Toast.LENGTH_SHORT).show();
+        }
+    }
+
 }
