@@ -32,11 +32,13 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
+import org.apache.http.NoHttpResponseException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
 
 import java.io.File;
@@ -97,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static final int TEANSLATE_SUCCESS = 1;
     public static final int TEANSLATE_FALL = -1;
+    public static final int NETWORKOFF = -2;
 
     private Handler handler = new Handler() {
         public void handleMessage(Message message) {
@@ -113,6 +116,9 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case TEANSLATE_FALL:
                     Toast.makeText(MainActivity.this, "必应翻译未能翻译出正确结果", Toast.LENGTH_SHORT).show();
+                    break;
+                case NETWORKOFF:
+                    Toast.makeText(MainActivity.this, "暂不支持离线，请检查网络连接", Toast.LENGTH_SHORT).show();
                     break;
                 default:
                     break;
@@ -346,41 +352,50 @@ public class MainActivity extends AppCompatActivity {
                     UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params, "utf-8");
                     httpPost.setEntity(entity);
                     try {
+                        httpClient.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+                        httpClient.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 6000);
                         HttpResponse httpResponse = httpClient.execute(httpPost);
                         if (httpResponse.getStatusLine().getStatusCode() == 200) {
                             //接下来使用GSON进行解析
                             HttpEntity httpEntity = httpResponse.getEntity();
                             String response = EntityUtils.toString(httpEntity, "utf-8");
                             parseJSONWithGSON(response);
+                            if (answer != null)
+                            {
+                                Message message = new Message();
+                                message.what = TEANSLATE_SUCCESS;
+                                handler.sendMessage(message);
+                            }
+                            else
+                            {
+                                Message message = new Message();
+                                message.what = TEANSLATE_FALL;
+                                handler.sendMessage(message);
+                            }
                         }
-                    } catch (IOException e) {
+                    }
+                    catch (NoHttpResponseException e)
+                    {
+                        Message message = new Message();
+                        message.what = NETWORKOFF;
+                        handler.sendMessage(message);
+                    }
+                    catch (IOException e)
+                    {
                         e.printStackTrace();
                     }
                 } catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
                 }
-                if (answer != null)
-                {
-                    Message message = new Message();
-                    message.what = TEANSLATE_SUCCESS;
-                    handler.sendMessage(message);
-                }
-                else
-                {
-                    Message message = new Message();
-                    message.what = TEANSLATE_FALL;
-                    handler.sendMessage(message);
-                }
             }
         }).start();
     }
 
+    //利用GSON解析json数据文件
     private void parseJSONWithGSON(String jsonData) {
-        //Log.d("!!!!!!!!", jsonData);
         Gson gson = new Gson();
         answer = gson.fromJson(jsonData, new TypeToken<Answer>() {
         }.getType());
-        //Log.d("MainActivity", answer.toString());
     }
 
     @Override
